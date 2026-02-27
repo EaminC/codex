@@ -1,7 +1,7 @@
 npm install -g @openai/codex
 gh auth login
 gh auth status
-export  FORGE_API_KEY=YOUR_FORGE_API_KEY
+export FORGE_API_KEY="YOUR_FORGE_API_KEY"
 
 codex exec \
   -c "model_providers.forge={ name='Forge', base_url='https://api.forge.tensorblock.co/v1', wire_api='responses', env_key='FORGE_API_KEY' }" \
