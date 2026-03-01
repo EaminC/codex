@@ -1,0 +1,2 @@
+Preparing worktree (detached HEAD ea7393b)
+HEAD is now at ea7393b Merge pull request #269 from leeeizhang/lei/enhance-memory-api

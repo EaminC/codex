@@ -1,5 +1,12 @@
 This repository is an AI project that needs to be configured.
 
+## 0) Execution Mode (Non-Interactive, One Pass)
+
+- This task runs in non-interactive mode.
+- Do not ask follow-up questions or wait for confirmation.
+- Make reasonable assumptions and complete all required outputs in one run.
+- Finish end-to-end in a single pass.
+
 ## 1) Environment Setup (Dockerfile)
 
 ### Goal

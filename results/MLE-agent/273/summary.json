@@ -1,0 +1,27 @@
+{
+  "repo": "MLSysOps/MLE-agent",
+  "issue_number": 273,
+  "pr_number": 274,
+  "export_dir": "/home/cc/codex/results/MLE-agent/273",
+  "changed_files_count": 3,
+  "kept_files_count": 4,
+  "repo_removed": false,
+  "f2p_checker_files": [
+    "/home/cc/codex/MLE-agent/Baseline/f2p_checker/f2p_from_swegent_bundle.py",
+    "/home/cc/codex/MLE-agent/Baseline/f2p_checker/f2p_from_swegent_bundle.md"
+  ],
+  "codex_elapsed_sec": 29.698,
+  "codex_usage_status": "ok",
+  "codex_usage_message": "usage extracted from codex --json output",
+  "codex_usage": {
+    "input_tokens": 144603,
+    "output_tokens": 899
+  },
+  "bundle_dir": "/home/cc/codex/results/MLE-agent/273/bundle",
+  "bundle_issue_json": "/home/cc/codex/results/MLE-agent/273/bundle/issue_273.json",
+  "bundle_dockerfile": "/home/cc/codex/results/MLE-agent/273/bundle/codex.dockerfile",
+  "bundle_test_count": "1",
+  "root_issue_json": "/home/cc/codex/results/MLE-agent/273/issue_273.json",
+  "root_dockerfile": "/home/cc/codex/results/MLE-agent/273/codex.dockerfile",
+  "root_test_count": "1"
+}

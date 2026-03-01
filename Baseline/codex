@@ -1,9 +1,29 @@
+# 1) 安装 nvm（如果还没装）
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc
+
+# 2) 安装并切换到 Node 20（>=16 即可，20更稳）
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# 3) 重新安装 codex
+npm uninstall -g @openai/codex
 npm install -g @openai/codex
+
+# 4) 验证
+node -v
+codex --version
 gh auth login
 gh auth status
-export FORGE_API_KEY="YOUR_FORGE_API_KEY"
+export FORGE_API_KEY=""
 
-codex exec \
+
+
+stats_url = f"{base_url.rstrip('/')}/stats/?provider={self.provider}&model={self.model}"
+response = requests.get(stats_url, headers={"Authorization": f"Bearer {self.api_key}"}, timeout=30)
+
+codex exec --json \
   -c "model_providers.forge={ name='Forge', base_url='https://api.forge.tensorblock.co/v1', wire_api='responses', env_key='FORGE_API_KEY' }" \
   -c "model_provider='forge'" \
   -c "model='tensorblock/gpt-4.1-mini'" \

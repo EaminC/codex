@@ -1,0 +1,13 @@
+{
+  "run_id": "issue_273-20260301T012405Z",
+  "bundle_dir": "/home/cc/codex/results/MLE-agent/273/bundle",
+  "repo": "MLSysOps/MLE-agent",
+  "issue_url": "https://github.com/MLSysOps/MLE-agent/issues/273",
+  "issue_number": 273,
+  "base_sha": "ea7393b7c5e6009b77bcac00f41dd5dcfd41df7a",
+  "head_sha": "ff809bfc06444fef28a8ecb99066ee63ef1382f5",
+  "dockerfile": "codex.dockerfile",
+  "tests": [
+    "test273.py"
+  ]
+}

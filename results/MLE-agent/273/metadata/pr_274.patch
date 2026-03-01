@@ -1,0 +1,52 @@
+From ff809bfc06444fef28a8ecb99066ee63ef1382f5 Mon Sep 17 00:00:00 2001
+From: Yizheng Huang <huangyz0918@gmail.com>
+Date: Wed, 27 Nov 2024 20:00:59 -0800
+Subject: [PATCH] =?UTF-8?q?=E2=9C=A8=20feat:=20fixed=20the=20memory=20init?=
+ =?UTF-8?q?=20before=20config=20error?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ mle/cli.py       | 4 ++--
+ requirements.txt | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/mle/cli.py b/mle/cli.py
+index 32990b4..7855938 100644
+--- a/mle/cli.py
++++ b/mle/cli.py
+@@ -19,11 +19,10 @@
+     startup_web,
+     print_in_box,
+ )
+-from mle.utils import LanceDBMemory, list_files, read_file
+ from mle.utils import CodeChunker
++from mle.utils import LanceDBMemory, list_files, read_file
+ 
+ console = Console()
+-memory = LanceDBMemory(os.getcwd())
+ 
+ 
+ @click.group()
+@@ -199,6 +198,7 @@ def chat(model, build_mem):
+     if not check_config(console):
+         return
+ 
++    memory = LanceDBMemory(os.getcwd())
+     if build_mem:
+         working_dir = os.getcwd()
+         table_name = 'mle_chat_' + working_dir.split('/')[-1]
+diff --git a/requirements.txt b/requirements.txt
+index 6ec76fd..ce25273 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,7 +1,7 @@
+ rich
+ click
+ py7zr~=0.22.0
+-openai~=1.34.0
++openai
+ pyyaml
+ kaggle
+ fastapi

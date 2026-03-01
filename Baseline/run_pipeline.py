@@ -5,8 +5,9 @@ import os
 import shlex
 import shutil
 import subprocess
+import time
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 
 def run_cmd(
@@ -37,6 +38,100 @@ def run_cmd(
         raise RuntimeError(
             f"Command not found: '{missing}'. Install it and make sure it is in PATH."
         ) from e
+
+
+def run_cmd_live_and_capture(
+    cmd: List[str],
+    cwd: Path | None = None,
+    env: Dict[str, str] | None = None,
+    pretty_json_stream: bool = False,
+) -> str:
+    """
+    Stream command output to terminal while also capturing stdout text.
+    """
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except FileNotFoundError as e:
+        missing = cmd[0] if cmd else "<unknown>"
+        raise RuntimeError(
+            f"Command not found: '{missing}'. Install it and make sure it is in PATH."
+        ) from e
+
+    captured_lines: List[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        captured_lines.append(line)
+        if not pretty_json_stream:
+            print(line, end="")
+            continue
+        rendered = render_codex_json_line(line)
+        if rendered:
+            print(rendered)
+    return_code = proc.wait()
+    output_text = "".join(captured_lines)
+
+    if return_code != 0:
+        cmd_text = " ".join(shlex.quote(part) for part in cmd)
+        details = output_text.strip() or "No stdout/stderr output."
+        raise RuntimeError(f"Command failed (exit {return_code}): {cmd_text}\n{details}")
+    return output_text
+
+
+def render_codex_json_line(raw_line: str) -> str:
+    """
+    Render codex --json events into concise, human-readable terminal lines.
+    """
+    line = raw_line.strip()
+    if not line:
+        return ""
+    try:
+        obj = json.loads(line)
+    except json.JSONDecodeError:
+        return raw_line.rstrip("\n")
+    if not isinstance(obj, dict):
+        return raw_line.rstrip("\n")
+
+    event_type = obj.get("type", "")
+    if event_type == "turn.started":
+        return "  [codex] turn started"
+    if event_type == "turn.completed":
+        usage = obj.get("usage") or {}
+        if isinstance(usage, dict):
+            parts: List[str] = []
+            for k in ("prompt_tokens", "completion_tokens", "total_tokens", "input_tokens", "output_tokens"):
+                v = usage.get(k)
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    parts.append(f"{k}={int(v)}")
+            if parts:
+                return f"  [codex] turn completed ({', '.join(parts)})"
+        return "  [codex] turn completed"
+
+    # Prefer readable assistant content when available.
+    message = obj.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, list):
+            texts: List[str] = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                txt = item.get("text")
+                if isinstance(txt, str) and txt.strip():
+                    texts.append(txt.strip())
+            if texts:
+                return "\n".join(f"  [assistant] {t}" for t in texts)
+
+    # Drop noisy incremental/delta events to keep terminal readable.
+    if "delta" in event_type:
+        return ""
+    return ""
 
 
 def load_map(path: Path) -> List[dict]:
@@ -76,6 +171,53 @@ def gh_api_json(endpoint: str) -> dict:
 
 def gh_api_text(endpoint: str, accept: str) -> str:
     return run_cmd(["gh", "api", endpoint, "-H", f"Accept: {accept}"]).stdout
+
+
+def collect_codex_usage(
+    codex_usage: Optional[Dict[str, int]],
+    elapsed_sec: float,
+    is_json_mode: bool,
+) -> Dict[str, object]:
+    usage: Dict[str, object] = {"codex_elapsed_sec": round(elapsed_sec, 3)}
+    usage["codex_usage_status"] = "ok" if codex_usage else "unavailable"
+    usage["codex_usage_message"] = (
+        "usage extracted from codex --json output"
+        if codex_usage
+        else (
+            "no usage found in codex --json output"
+            if is_json_mode
+            else "enable --json to collect usage per run"
+        )
+    )
+    usage["codex_usage"] = codex_usage or {}
+    return usage
+
+
+def extract_usage_from_codex_json_output(stdout_text: str) -> Optional[Dict[str, int]]:
+    for raw_line in stdout_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("type") != "turn.completed":
+            continue
+        usage = obj.get("usage")
+        if not isinstance(usage, dict):
+            continue
+
+        result: Dict[str, int] = {}
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens", "input_tokens", "output_tokens"):
+            val = usage.get(key)
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                result[key] = int(val)
+        if result:
+            return result
+    return None
 
 
 def parse_codex_template(path: Path) -> Tuple[Dict[str, str], List[str]]:
@@ -354,6 +496,7 @@ def main() -> None:
     items = load_map(map_file)
     prompt_template = prompt_file.read_text(encoding="utf-8")
     exported_env, codex_base_cmd = parse_codex_template(codex_template)
+    is_json_mode = "--json" in codex_base_cmd
 
     base_env = os.environ.copy()
     base_env.update(exported_env)
@@ -399,7 +542,30 @@ def main() -> None:
 
         cmd = codex_base_cmd + [codex_prompt]
         print(f"  - running codex in {repo_dir} ...")
-        run_cmd(cmd, cwd=repo_dir, env=base_env, capture_output=False)
+        started = time.perf_counter()
+        codex_usage: Optional[Dict[str, int]] = None
+        if is_json_mode:
+            codex_stdout = run_cmd_live_and_capture(
+                cmd,
+                cwd=repo_dir,
+                env=base_env,
+                pretty_json_stream=True,
+            )
+            codex_usage = extract_usage_from_codex_json_output(codex_stdout)
+        else:
+            run_cmd(cmd, cwd=repo_dir, env=base_env, capture_output=False)
+        elapsed_sec = time.perf_counter() - started
+        usage_summary = collect_codex_usage(
+            codex_usage=codex_usage,
+            elapsed_sec=elapsed_sec,
+            is_json_mode=is_json_mode,
+        )
+        print(f"  - codex elapsed: {elapsed_sec:.2f}s")
+        if codex_usage:
+            token_parts = [f"{k}={v}" for k, v in codex_usage.items()]
+            print(f"  - codex tokens: {', '.join(token_parts)}")
+        else:
+            print(f"  - codex tokens: {usage_summary['codex_usage_message']}")
 
         repo_name = repo.split("/")[-1]
         export_dir = result_root / repo_name / str(issue_number)
@@ -434,6 +600,7 @@ def main() -> None:
             "repo_removed": cloned_now,
             "f2p_checker_files": [str(p) for p in copied_checker_paths],
         }
+        summary.update(usage_summary)
 
         # Generate checker-ready bundle (issue_*.json + *.dockerfile + test*.py).
         summary.update(create_checker_bundle(export_dir, issue, pr, patch_text))
